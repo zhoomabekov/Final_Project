@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<form action="" method="post">
+  {% csrf_token %}                        <!--csrf_token - для защиты приложения от хакерских атак-->
+  {{ form.as_p }}                         <!--#Inserting HTML, "as_p" means to process blocks as <p> paragraph-->
+                                          <!--form ссылается на объект, созданный во VIEWS: form = ProductForm()-->
+  <input type="submit" value="Save" />
+</form>
+</body>
+</html>

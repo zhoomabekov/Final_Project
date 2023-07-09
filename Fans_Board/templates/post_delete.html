@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Удаление записи</title>
+</head>
+<body>
+<h1>Удаление записи</h1>
+<hr>
+<form action="" method="post">
+    {% csrf_token %}
+    <p>Вы точно хотите удалить пост "{{ object.title }}"?</p>
+    <input type="submit" value="Delete" />
+</form>
+</body>
+</html>

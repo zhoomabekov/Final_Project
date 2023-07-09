@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+{% for post in posts %}
+    <h3>{{ post.title }}</h3>
+    {{ post.post_created|date:'d.m.Y' }}
+    <h6> {{ post.body|truncatewords:20 |safe }} </h6>
+    <hr>
+{% endfor %}
+</body>
+</html>

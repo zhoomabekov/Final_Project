@@ -1,0 +1,14 @@
+<h1>{{ post.title }}</h1>
+<!-- <h4> Автор: {{ post.author.user }}<br> -->
+Категория:
+{% if post.categories.exists %}
+    {% for category in post.categories.all %}
+      {{ category.name }},
+    {% endfor %}
+{% endif %} </h4>
+
+<br>
+{{ post.post_created|date:'d.m.Y' }}
+<br>
+<br>
+<p align="justify"> {{ post.body|safe }} </p>
