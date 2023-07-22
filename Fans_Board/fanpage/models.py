@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.urls import reverse
@@ -10,7 +8,7 @@ class CustomUser(AbstractUser):
     list_display = ['username', 'email', 'first_name', 'last_name', 'is_staff']
 
 class Post(models.Model):
-    author = models.ForeignKey(CustomUser, on_delete=models.CASCADE, default=1)
+    author = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     title = models.CharField(max_length=50, unique=True)
     body = RichTextUploadingField()
     categories = models.ManyToManyField('Category', through='PostCategory', related_name='posts')
@@ -19,11 +17,16 @@ class Post(models.Model):
     def get_absolute_url(self):
         return reverse('post_detail', args=[str(self.id)])
 
+    def __str__(self):
+        return self.title
+
 
 class Reply(models.Model):
-    author = models.ForeignKey(CustomUser, on_delete=models.CASCADE, default=1)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='replies')
+    author = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='replies')
     body = models.TextField()
     reply_created = models.DateTimeField(auto_now_add=True)
+    accepted = models.BooleanField(default=False)
 
 
 class Category(models.Model):

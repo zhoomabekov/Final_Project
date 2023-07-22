@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Недельный дайджест</title>
+</head>
+<body>
+За прошедшую неделю были опубликованы следующие посты:
+{% for post in posts %}
+    <a href="http://127.0.0.1:8000{% url 'post_detail' pk=post.id %}">
+    <h3>{{ post.title }} </h3>
+    </a>
+{% endfor %}
+
+</body>
+</html>

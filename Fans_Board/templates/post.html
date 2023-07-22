@@ -1,9 +1,10 @@
 <h1>{{ post.title }}</h1>
-<!-- <h4> Автор: {{ post.author.user }}<br> -->
+<h4> Автор: {{ post.author }}<br><br>
+
 Категория:
 {% if post.categories.exists %}
     {% for category in post.categories.all %}
-      {{ category.name }},
+      {{ category.name }}{% if not forloop.last %}, {% endif %}
     {% endfor %}
 {% endif %} </h4>
 
@@ -12,3 +13,13 @@
 <br>
 <br>
 <p align="justify"> {{ post.body|safe }} </p>
+{% if post.author != request.user and not request.user.is_anonymous %}
+    <form method="post" action="">
+      {% csrf_token %}
+      {{ form.reply }}
+      <button type="submit">Submit Reply</button>
+    </form>
+{% endif %}
+
+
+<a href="/">Вернуться к списку всех постов</a>

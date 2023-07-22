@@ -5,8 +5,15 @@
     <title>Title</title>
 </head>
 <body>
+{% if request.user.is_anonymous %}
+<a href="/accounts/login">Войти</a><br>
+<a href="/accounts/signup">Зарегистрироваться</a>
+{% else %}
+Вы вошли под аккаунтом <strong>{{ request.user }}</strong> <br>
+<a href="/replies">Отклики на мои посты</a>
+{% endif %}
 {% for post in posts %}
-    <h3>{{ post.title }}</h3>
+    <a href="/post/{{post.pk}}"><h3>{{ post.title }}</h3></a>
     {{ post.post_created|date:'d.m.Y' }}
     <h6> {{ post.body|truncatewords:20 |safe }} </h6>
     <hr>

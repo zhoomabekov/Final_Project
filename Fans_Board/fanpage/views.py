@@ -3,16 +3,22 @@ from urllib.parse import urlencode
 from allauth.account.adapter import get_adapter
 from allauth.account.utils import send_email_confirmation
 from allauth.account.views import SignupView, LoginView, sensitive_post_parameters_m
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.core.mail import send_mail
-from django.shortcuts import render, redirect
+from django.http import Http404
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy, reverse
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, FormView
-from .forms import PostForm, CodeCheckForm
-from .models import Post, VerificationCode, CustomUser
+from .tasks import hello
+
+from .filters import ReplyFilter
+from .forms import PostForm, CodeCheckForm, PrivateReplyForm
+from .models import Post, VerificationCode, CustomUser, Reply
 from Fans_Board import settings
 from allauth.decorators import rate_limit
 from django.views.decorators.debug import sensitive_post_parameters
@@ -25,11 +31,34 @@ class PostsList(ListView):
     context_object_name = 'posts'
     paginate_by = 10
 
+    def get(self, request):
+        hello.delay()
+        response = super().get(request)
+        return response
+
 
 class PostDetail(DetailView):
     model = Post
     template_name = 'post.html'
     context_object_name = 'post'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['form'] = PrivateReplyForm()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        form = PrivateReplyForm(request.POST)
+        if form.is_valid():
+            post = self.get_object()  # Get the current Post object
+            user_reply = Reply.objects.create(
+                post=post,
+                author=self.request.user,
+                body=form.cleaned_data.get('reply')
+            )
+            return redirect('post_detail', pk=post.pk)
+        else:
+            return self.get(request, *args, **kwargs)
 
 
 class PostCreate(LoginRequiredMixin, CreateView):
@@ -39,10 +68,10 @@ class PostCreate(LoginRequiredMixin, CreateView):
     model = Post
     template_name = 'post_edit.html'
 
-    # def dispatch(self, request, *args, **kwargs):
-    #     if not request.user.email_verified:
-    #         return self.handle_unverified_email()
-    #     return super().dispatch(request, *args, **kwargs)
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['author'] = self.request.user  # Pass the author to the form
+        return kwargs
 
 
 class PostUpdate(LoginRequiredMixin, UpdateView):
@@ -52,6 +81,15 @@ class PostUpdate(LoginRequiredMixin, UpdateView):
     form_class = PostForm
     model = Post
     template_name = 'post_edit.html'
+
+    def get_object(self, queryset=None):
+        # Get the object based on the provided query and check if the current user has permission
+        obj = super().get_object(queryset=queryset)
+
+        if not obj.author == self.request.user:
+            raise Http404("You do not have permission to edit this post.")
+
+        return obj
 
 
 class PostDelete(LoginRequiredMixin, DeleteView):
@@ -78,8 +116,6 @@ class CustomSignupView(SignupView):
             temp_code=confirmation_code,
         )
 
-        # Send confirmation email
-        # current_site = get_current_site(self.request)
         mail_subject = "Please Confirm Your E-mail Address"
 
         message = f"""
@@ -107,20 +143,13 @@ class CodeCheckView(View):
     success_url = '/posts/'  # URL to redirect after successful verification
 
     def get(self, request):
-        print('GET CODECHECK called')
-        print(request)
-        print(self.request)
-        print(self.request.user)
         form = CodeCheckForm()
         user_id = request.GET.get('user_id')
         email_not_verified = request.GET.get('email_not_verified', '')
-        print(f'CodeCheckView.email_not_verified = {email_not_verified}')
         return render(request, self.template_name,
                       {'form': form, 'user_id': user_id, 'email_not_verified': email_not_verified})
 
     def post(self, request):
-        print('POST CODECHECK called')
-        print(f'POINT 1: {self.request.user}')
         # Get the confirmation code entered by the user
         user_code = request.POST.get('verification_code')
         user_id = request.POST.get('user_id')
@@ -131,20 +160,16 @@ class CodeCheckView(View):
             user = CustomUser.objects.get(pk=user_id)
             user.email_verified = True
             user.save()
-            print(f'POINT 2: {self.request.user}')
-
 
         except VerificationCode.DoesNotExist:
             form = CodeCheckForm()
             try_again = 'Verification code is incorrect. Please try again...'
-            print(f'POINT 3: {self.request.user}')
             redirect_url = reverse('code_check') + f"?user_id={user_id}&try_again={try_again}"
             next_val = self.request.session.get('next')
             redirect_url += f"&next={next_val}"
             return redirect(redirect_url)
 
         # Redirect to the success URL
-        print(f'POINT 4: {self.request.user}')
         if self.request.session.get('next'):
             next_url = self.request.session.pop('next')
             return redirect(next_url)
@@ -170,13 +195,11 @@ class CustomLoginView(LoginView):
         # Perform your additional email confirmation check here
         email = form.cleaned_data.get('login')
         user = CustomUser.objects.get(email=email)
-        print(f'EMAIL Verified? - {user.email_verified}')
 
         if user.email_verified:
             # If the user's email is confirmed, proceed with the default form_valid behavior
             return super().form_valid(form)
         else:
-            print('REDIRECTING from CustomLoginView')
             # If the user's email is not confirmed, redirect to the code_check page
             email_not_verified = '''
                         Your email was not verified. Please check your email inbox (or spam folder) 
@@ -190,3 +213,63 @@ class CustomLoginView(LoginView):
             return redirect(redirect_url)
 
 
+class PrivateReplyView(LoginRequiredMixin, View):
+
+    def get(self, request, post_id):
+        form = PrivateReplyForm()
+        context = {'form': form}
+        return render(request, 'post.html', context)
+
+    def post(self, request, post_id):
+        form = PrivateReplyForm(request.POST)
+        if form.is_valid():
+            user_reply = Reply.objects.create(post=Post.objects.get(id=post_id), author=self.request.user,
+                                              body=form.cleaned_data.get('reply'))
+            # print('redirectiiiiiiiiiiing')
+            # return redirect('posts_list')
+        else:
+            # Handle form validation errors here, if any
+            pass
+
+
+class RepliesView(LoginRequiredMixin, ListView):
+    model = Reply
+    ordering = '-reply_created'
+    template_name = 'replies.html'
+    context_object_name = 'replies'
+    paginate_by = 10
+
+    def get_queryset(self):
+        user = self.request.user
+        user_posts = Post.objects.filter(author=user)
+
+        # Apply filter if the post is selected in the form
+        reply_filter = ReplyFilter(self.request.GET, queryset=Reply.objects.filter(post__in=user_posts))
+        return reply_filter.qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['filter'] = ReplyFilter(self.request.GET, queryset=self.get_queryset(), user=self.request.user)
+        return context
+
+
+class ReplyDelete(LoginRequiredMixin, DeleteView):
+    login_url = '/accounts/login/'
+    redirect_field_name = 'next'
+
+    model = Reply
+    template_name = 'reply_delete.html'
+    success_url = reverse_lazy('replies_list')
+
+
+@login_required
+def replyAccepted(request, pk):
+    reply = get_object_or_404(Reply, id=pk)
+    post = reply.post
+    if request.user == post.author:
+        reply.accepted = True
+        reply.save()
+        messages.success(request, 'Reply Accepted!')
+        return render(request, 'reply_accept.html')
+    else:
+        return render(request, 'reply_accept_authority.html')

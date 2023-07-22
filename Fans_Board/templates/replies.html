@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<form method="get">
+  {{ filter.form.as_p }}
+  <button type="submit">Filter</button>
+</form>
+
+{% for reply in replies %}
+    <h3>{{ reply.post.title }}</h3>
+    {{ reply.author }}<br>
+    {{ reply.reply_created }}
+    <br>
+    <br>
+    {{ reply.body }}
+    <br>
+    {% if not reply.accepted %}
+        <a href="/reply/{{reply.pk}}/accept"><strong><span style="color: rgb(65, 168, 95);">Accept</span></strong></a>
+        <a href="/reply/{{reply.pk}}/delete"><strong><span style="color: rgb(184, 49, 47);">Delete</span></strong></a>
+    {% else %}
+        <span style="color: rgb(65, 168, 95);">Reply accepted</span>
+    {% endif %}
+{% empty %}
+    <br>
+No replies yet...
+    <br>
+{% endfor %}
+</body>
+</html>
+

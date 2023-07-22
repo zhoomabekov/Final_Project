@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import dotenv
+from celery.schedules import crontab
 
 dotenv.load_dotenv()
 
@@ -26,7 +27,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.sites',
     'django.contrib.flatpages',
-    'fanpage',
+    'fanpage.apps.FanpageConfig',
 
     'allauth',
     'allauth.account',
@@ -106,7 +107,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ru-ru'
 
 TIME_ZONE = 'UTC'
 
@@ -150,5 +151,15 @@ ACCOUNT_AUTHENTICATION_METHOD = 'email'
 EMAIL_VERIFICATION = 'mandatory'
 
 AUTH_USER_MODEL = 'fanpage.CustomUser'
+
+CELERY_BROKER_URL = 'redis://:aWJ7oR8cFv8QPkTSIxOMrk9HXH4yqWWt@redis-10032.c299.asia-northeast1-1.gce.cloud.redislabs.com:10032'
+CELERY_RESULT_BACKEND = 'redis://:aWJ7oR8cFv8QPkTSIxOMrk9HXH4yqWWt@redis-10032.c299.asia-northeast1-1.gce.cloud.redislabs.com:10032'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+
+
+
+
 
 
